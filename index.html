@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Finances Management App</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<style>
+.modal{display:none;position:fixed;z-index:9999;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);justify-content:center;align-items:center;padding:16px}
+.modal.active{display:flex}
+.modal-content{background:white;border-radius:20px;padding:20px;width:100%;max-width:460px;max-height:90vh;overflow-y:auto;animation:pop 0.3s ease;border:2px solid #f9a8d4;position:relative}
+@keyframes pop{from{transform:scale(0.9);opacity:0}to{transform:scale(1);opacity:1}}
+.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid #fce7f3}
+.modal-header h3{margin:0;font-size:15px;color:#be185d;display:flex;align-items:center;gap:6px}
+.close-btn{background:#fff1f2;border:1.5px solid #fecdd3;border-radius:50%;width:36px;height:36px;font-weight:700;cursor:pointer;color:#e11d48;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;transition:all 0.2s}
+.close-btn:hover{background:#ffe4e6;transform:scale(1.05)}
+</style>
+</head>
+<body>
+<script>
+(function(){
+  let auth = sessionStorage.getItem('boss_auth');
+  let persist = localStorage.getItem('boss_auth_persist');
+  if(!auth &&!persist){ window.location.href = "login.html"; return; }
+})();
+</script>
+
+<div class="top">
+  <div><h1>💖 Boss Christine Finances</h1><div style="font-size:11px;color:var(--muted)">Hello Gorgeous ✨</div><small id="firebaseStatus" style="font-size:9px;background:#fff0f6;padding:3px 8px;border-radius:99px;color:#b07a94">⏳ Connecting...</small></div>
+  <div style="text-align:right"><small style="font-size:10px;color:var(--muted);font-weight:600">AVAILABLE FUND</small><div id="availableFund" style="font-weight:800;font-size:18px;color:#d946a0">₱0</div><small id="monthLabel" style="font-size:10px;color:var(--muted)"></small><br><button onclick="logout()" style="margin-top:6px;padding:5px 12px;background:#fff1f2;color:#e11d48;border:1px solid #fecdd3;border-radius:99px;font-weight:700;font-size:9px;cursor:pointer">🚪 Logout</button></div>
+</div>
+
+<div class="filter-bar">
+  <small>📅 Filter:</small>
+  <select id="yearFilter" onchange="changeFilter()"><option value="all">All Years</option><option value="2026" selected>2026</option><option value="2027">2027</option><option value="2028">2028</option><option value="2029">2029</option><option value="2030">2030</option><option value="2031">2031</option><option value="2032">2032</option><option value="2033">2033</option><option value="2034">2034</option><option value="2035">2035</option><option value="2036">2036</option></select>
+  <select id="monthFilter" onchange="changeFilter()"><option value="all">All Months</option><option value="01">January</option><option value="02">February</option><option value="03">March</option><option value="04">April</option><option value="05">May</option><option value="06">June</option><option value="07">July</option><option value="08">August</option><option value="09">September</option><option value="10">October</option><option value="11">November</option><option value="12">December</option></select>
+  <button style="width:auto;padding:8px 12px;font-size:10px" class="btn-ghost" onclick="resetFilter()">🔄 Reset</button>
+</div>
+
+<div class="stat-grid" style="grid-template-columns:1fr 1fr 1fr;">
+  <div class="stat" onclick="showIncomeBreakdown()" style="cursor:pointer"><small>💵 Income</small><h2 style="color:#22c55e" id="totalIncome">₱0</h2><small style="font-size:8px;color:#22c55e;display:block;margin-top:4px">👆 View More</small></div>
+  <div class="stat" onclick="showExpenseBreakdown()" style="cursor:pointer"><small>💸 Expenses</small><h2 style="color:#ef4444" id="totalExpense">₱0</h2><small style="font-size:8px;color:#ef4444;display:block;margin-top:4px">👆 View More</small></div>
+  <div class="stat" onclick="showSavingsBreakdown()" style="cursor:pointer;border:2px solid #f9a8d4;background:linear-gradient(135deg,#fff0f6,#fdf4ff)"><small>💎 Savings</small><h2 style="color:#ec4899" id="totalSavings">₱0</h2><small style="font-size:8px;color:#ec4899;display:block;margin-top:4px">👆 View More</small></div>
+  <div class="stat" onclick="showBillsBreakdown()" style="cursor:pointer"><small>🧾 Bills</small><h2 style="color:#ef4444" id="totalBills">₱0</h2><small style="font-size:8px;color:#ef4444;display:block;margin-top:4px">👆 View More</small></div>
+  <div class="stat" onclick="showLoansBreakdown()" style="cursor:pointer"><small>🏦 Loans</small><h2 style="color:#ef4444" id="totalLoans">₱0</h2><small style="font-size:8px;color:#a78bfa;display:block;margin-top:4px">👆 View More</small></div>
+  <div class="stat" onclick="showWalletBreakdown()" style="cursor:pointer;background:linear-gradient(135deg,#fff0f6,#f3e8ff)"><small>💰 Available</small><h2 style="color:#be185d" id="availableFund2">₱0</h2><small style="font-size:8px;color:#be185d;display:block;margin-top:4px">👆 View More</small></div>
+</div>
+
+<div style="margin:10px 0 8px;display:flex;align-items:center;gap:6px"><span style="font-size:14px">💅</span><small style="font-size:11px;color:#be185d;font-weight:700">MY SAVINGS FUNDS 💖</small><small id="filterLabel" style="font-size:9px;color:var(--muted);background:#fff0f6;padding:3px 8px;border-radius:99px;margin-left:auto"></small></div>
+<div class="fund-grid" id="dashboardFunds"></div>
+
+<div class="nav">
+  <div class="navbtn active" onclick="tab('dashboard',this)">📊 Dashboard</div>
+  <div class="navbtn" onclick="tab('wallet',this)">👛 Wallet</div>
+  <div class="navbtn" onclick="tab('income',this)">💵 Income</div>
+  <div class="navbtn" onclick="tab('expense',this)">💸 Expense</div>
+  <div class="navbtn" onclick="tab('bills',this)">🧾 Bills</div>
+  <div class="navbtn" onclick="tab('loans',this)">🏦 Loans</div>
+  <div class="navbtn" onclick="tab('savings',this)">💖 Savings</div>
+</div>
+
+<div id="dashboard" class="section active">
+  <div class="card"><h3>📋 Summary</h3><div id="summaryList" style="font-size:12px;line-height:2;color:#6b4a5e"></div></div>
+  <div class="card" style="border:1.5px solid #f9a8d4"><h3>👛 Wallet</h3><div id="walletBreakdownDash"></div></div>
+  <div class="card"><h3>⚠️ Unpaid Bills</h3><div id="unpaidList" class="list"></div></div>
+  <div class="card" style="border:1.5px solid #f9a8d4"><h3>📜 Recent Wallet Transactions</h3><div id="dashboardWalletTx" class="list"></div></div>
+  <div style="display:none"><span id="totalIncomeMonth"></span><span id="totalExpenseMonth"></span><span id="totalSavingsMonth"></span><span id="walletEqualLabel"></span></div>
+</div>
+
+<div id="wallet" class="section">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3>👛 My Wallets</h3><div style="display:flex;gap:8px"><button class="btn-purple" style="width:auto;padding:8px 14px;font-size:11px" onclick="openModal('walletModal')">+ Wallet</button><button class="btn-blue" style="width:auto;padding:8px 14px;font-size:11px" onclick="openModal('transferModal')">🔄 Transfer</button></div></div>
+  <div id="walletList"></div>
+  <div class="card"><h3>📜 Wallet Transactions History</h3><div id="walletTx" class="list"></div></div>
+</div>
+
+<div id="income" class="section">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3 id="incomeTitle">Income History</h3><button class="btn-green" style="width:auto;padding:8px 16px" onclick="openModal('incomeModal')">+ Add Income</button></div>
+  <div id="incomeList" class="list"></div>
+</div>
+
+<div id="expense" class="section">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3 id="expenseTitle">Expense History</h3><button class="btn-red" style="width:auto;padding:8px 16px" onclick="openModal('expenseModal')">+ Add Expense</button></div>
+  <div id="expenseList" class="list"></div>
+</div>
+
+<div id="bills" class="section">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3>My Bills</h3><button class="btn-blue" style="width:auto;padding:8px 16px" onclick="openModal('billModal')">+ Add Bill</button></div>
+  <div id="billsList" class="list"></div>
+</div>
+
+<div id="loans" class="section">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3>My Loans</h3><button class="btn-purple" style="width:auto;padding:8px 16px" onclick="openModal('loanModal')">+ Add Loan</button></div>
+  <div id="loansList"></div>
+</div>
+
+<div id="savings" class="section">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3>💖 Savings</h3><div style="display:flex;gap:8px"><button class="btn-yellow" style="width:auto;padding:8px 14px;font-size:11px" onclick="openModal('savingsAddModal')">+ Add Money</button><button class="btn-purple" style="width:auto;padding:8px 14px;font-size:11px" onclick="openModal('customModal')">✨ Custom Fund</button></div></div>
+  <div id="savingsGrid"></div>
+  <div class="card"><h3>📜 Savings Transactions History</h3><div id="savingsTx" class="list"></div></div>
+</div>
+
+<!-- INPUT MODALS -->
+<div id="walletModal" class="modal"><div class="modal-content"><div class="modal-header"><h3>👛 Add Wallet</h3><button class="close-btn" onclick="closeModal('walletModal')">✕</button></div><label>Name</label><input id="walletName" placeholder="GCash"><div class="row2"><div><label>Type</label><select id="walletType"><option value="cash">💵 CASH</option><option value="ewallet">📱 E-WALLET</option><option value="bank">🏦 BANK</option></select></div><div><label>Icon</label><input id="walletIcon" placeholder="💵"></div></div><label>Starting Balance</label><div class="money-wrap"><input id="walletBalance" type="text" placeholder="0"></div><button class="btn-purple" onclick="addWallet(); closeModal('walletModal')">+ Add Wallet ✨</button></div></div>
+<div id="transferModal" class="modal"><div class="modal-content"><div class="modal-header"><h3>🔄 Transfer</h3><button class="close-btn" onclick="closeModal('transferModal')">✕</button></div><div class="row2"><div><label>From</label><select id="transferFrom"></select></div><div><label>To</label><select id="transferTo"></select></div></div><label>Amount</label><div class="money-wrap"><input id="transferAmount" type="text" placeholder="1,000"></div><button class="btn-blue" onclick="transferWallet(); closeModal('transferModal')">Transfer 💸</button></div></div>
+<div id="incomeModal" class="modal"><div class="modal-content"><div class="modal-header"><h3>💵 Add Income</h3><button class="close-btn" onclick="closeModal('incomeModal')">✕</button></div><label>Source</label><select id="incSource"><option>Salary</option><option>Freelance</option><option>Business</option><option>Bonus</option><option>Other Income</option></select><label>To Wallet 👛</label><select id="incWallet"></select><label>Amount</label><div class="money-wrap"><input id="incAmount" type="text" placeholder="30,000"></div><label>Date</label><input id="incDate" type="date"><label>Note</label><input id="incNote" placeholder="e.g. Salary - BPI"><button class="btn-green" onclick="addIncome(); closeModal('incomeModal')">+ Add Income 💖</button></div></div>
+<div id="expenseModal" class="modal"><div class="modal-content"><div class="modal-header"><h3>💸 Add Expense</h3><button class="close-btn" onclick="closeModal('expenseModal')">✕</button></div><label>Category</label><select id="expCat"><option>Food</option><option>Transport</option><option>Accommodation</option><option>Laag / Tour</option><option>Groceries</option><option>Shopping</option><option>Health</option><option>Beauty</option><option>Other</option></select><label>From Wallet 👛</label><select id="expWallet"></select><label>Amount</label><div class="money-wrap"><input id="expAmount" type="text" placeholder="500"></div><label>Date</label><input id="expDate" type="date"><label>Note</label><input id="expNote" placeholder=""><button class="btn-red" onclick="addExpense(); closeModal('expenseModal')">+ Add Expense 💅</button></div></div>
+<div id="billModal" class="modal"><div class="modal-content"><div class="modal-header"><h3>🧾 Add Bill</h3><button class="close-btn" onclick="closeModal('billModal')">✕</button></div><input id="billName" placeholder="Electricity, Internet, Rent"><div class="money-wrap"><input id="billAmt" type="text" placeholder="1,800"></div><select id="billDue"><option value="5">Every 5th</option><option value="15">Every 15th</option><option value="30">Every 30th</option></select><label>Pay from Wallet 👛 (Default)</label><select id="billWallet"></select><button class="btn-blue" onclick="addBill(); closeModal('billModal')">+ Add Bill 💳</button></div></div>
+<div id="loanModal" class="modal"><div class="modal-content"><div class="modal-header"><h3>🏦 Add Loan</h3><button class="close-btn" onclick="closeModal('loanModal')">✕</button></div><label>Loan Name</label><input id="loanName" placeholder="Home Credit, SSS Loan"><div class="row2"><div><label>Amount</label><div class="money-wrap"><input id="loanAmount" type="text" placeholder="100,000"></div></div><div><label>Term</label><input id="loanTerm" type="number" value="12"></div></div><div class="row2"><div><label>Monthly</label><div class="money-wrap"><input id="loanMonthly" type="text" placeholder="Auto"></div></div><div><label>Start Date</label><input id="loanStart" type="date"></div></div><label>Pay from Wallet 👛 (Default)</label><select id="loanWallet"></select><button class="btn-purple" onclick="addLoan(); closeModal('loanModal')">+ Add Loan ✨</button></div></div>
+<div id="savingsAddModal" class="modal"><div class="modal-content"><div class="modal-header"><h3>💖 Add to Savings</h3><button class="close-btn" onclick="closeModal('savingsAddModal')">✕</button></div><label>From Wallet 👛</label><select id="savingsWallet"></select><label>Fund</label><select id="saveType"></select><label>Amount</label><div class="money-wrap"><input id="saveAmt" type="text" placeholder="2,000"></div><input id="saveNote" placeholder="Note"><button class="btn-yellow" onclick="addToSaving(); closeModal('savingsAddModal')">+ Add to Savings 💖</button></div></div>
+<div id="customModal" class="modal"><div class="modal-content"><div class="modal-header"><h3>✨ Custom Fund</h3><button class="close-btn" onclick="closeModal('customModal')">✕</button></div><input id="customName" placeholder="House Fund"><div class="row2"><div><div class="money-wrap"><input id="customGoal" type="text" placeholder="200,000"></div></div><div><input id="customIcon" placeholder="🏠"></div></div><select id="customColor"><option value="#ec4899">💖 Pink</option><option value="#f472b6">🌸 Light Pink</option><option value="#a78bfa">💜 Purple</option><option value="#8b7cf8">💙 Lavender</option><option value="#fb7185">🍑 Peach</option><option value="#fbbf24">🌼 Yellow</option></select><button class="btn-purple" onclick="createCustom(); closeModal('customModal')">+ Create Fund ✨</button></div></div>
+
+<!-- BREAKDOWN POP-UP -->
+<div id="breakdownModal" class="modal"><div class="modal-content" style="max-width:480px"><div class="modal-header"><h3 id="breakdownTitle">📊 Breakdown</h3><button class="close-btn" onclick="closeModal('breakdownModal')">✕</button></div><div id="breakdownContent" style="font-size:12px;line-height:1.6"></div></div></div>
+
+<!-- PAY BILL WITH WALLET SELECTOR -->
+<div id="payBillModal" class="modal"><div class="modal-content" style="max-width:400px"><div class="modal-header"><h3 id="payBillTitle">🧾 Pay Bill</h3><button class="close-btn" onclick="closeModal('payBillModal')">✕</button></div><div id="payBillContent"></div><label style="margin-top:12px">Pay from Wallet 👛</label><select id="payBillWallet"></select><div id="payBillInfo" style="margin-top:10px;padding:10px;background:#fff0f6;border-radius:10px;font-size:11px"></div><button class="btn-blue" id="payBillBtn" style="margin-top:12px">💳 Pay Now</button></div></div>
+
+<!-- PAY LOAN WITH WALLET SELECTOR -->
+<div id="payLoanModal" class="modal"><div class="modal-content" style="max-width:400px"><div class="modal-header"><h3 id="payLoanTitle">🏦 Pay Loan</h3><button class="close-btn" onclick="closeModal('payLoanModal')">✕</button></div><div id="payLoanContent"></div><label>Amount to Pay</label><div class="money-wrap"><input id="payLoanAmount" type="text" placeholder="Monthly amount"></div><label style="margin-top:10px">Pay from Wallet 👛</label><select id="payLoanWallet"></select><div id="payLoanInfo" style="margin-top:10px;padding:10px;background:#f5f3ff;border-radius:10px;font-size:11px"></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px"><button class="btn-purple" id="payLoanBtn">💳 Pay</button><button class="btn-ghost" id="payFullLoanBtn">Pay Full Remaining</button></div></div></div>
+
+<script src="script.js"></script>
+</body>
+</html>
